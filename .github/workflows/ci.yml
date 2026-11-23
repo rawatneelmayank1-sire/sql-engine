@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # The suite must pass with no API key present. That is the point: the evaluation
+    # and every LLM test run from committed fixtures, so anyone can reproduce them.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Generate the demo dataset
+        run: python data/generate.py
+
+      - name: Test
+        run: python -m pytest -q
+
+      # Regenerates evaluation/results.md and fails if verified accuracy regresses.
+      # The report is date-stamped, so it cannot be diffed against the committed copy;
+      # asserting the number it contains is the check that actually means something.
+      - name: Evaluation (fixtures, no API key)
+        run: python evaluation/run_eval.py --min-accuracy 0.80
+
+      - name: Confirm the reference fixtures still cover the golden set
+        run: python evaluation/build_reference_fixtures.py
+
+      # Optional: only runs where the Spider dev files are present. The script exits 0
+      # and says so when they are not, so a clone without them still goes green.
+      - name: Spider dev coverage
+        run: python evaluation/spider_coverage.py

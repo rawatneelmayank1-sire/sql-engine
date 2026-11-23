@@ -1,0 +1,35 @@
+# Generated data. Rebuild with: python data/generate.py
+data/warehouse/
+
+# Benchmark scratch
+bench/_bench.sqlite
+.benchmarks/
+
+# Python caches and build outputs
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+*.whl
+.venv/
+venv/
+.pytest_cache/
+.hypothesis/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Secrets never belong in the repository; keys are read from the environment
+.env
+.env.*
+
+# Editors, OS and local tool configuration
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# Internal work logs (kept on disk, not published)
+PROGRESS*.md

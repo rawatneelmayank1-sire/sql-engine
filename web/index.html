@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL Engine</title>
+<meta name="description" content="A SELECT-only SQL engine written from scratch, with a verification layer in front of an LLM text-to-SQL model. Static demo: every result was computed by the real engine.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 2H2v12h3M11 2h3v12h-3' fill='none' stroke='%230F7A6E' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1 class="wordmark"><span class="bracket">[</span>SQL Engine<span class="bracket">]</span></h1>
+      <p class="tagline">A SELECT-only SQL engine and the verification layer in front of it. Every stage below is the real one the query passed through.</p>
+    </div>
+    <div class="masthead-spacer"></div>
+    <div class="chip-row">
+      <span class="pill" id="model-pill">loading</span>
+      <a class="ghost" id="source-link" href="https://github.com/rawatneelmayank1-sire/sql-engine">Source</a>
+      <button class="ghost" id="theme-toggle" type="button">Theme</button>
+    </div>
+  </header>
+
+  <p class="modeline" id="modeline">
+    <span class="modeline-tag">Static demo</span>
+    <span id="modeline-text">Every result was computed by the real engine; LLM answers are recorded responses.</span>
+  </p>
+
+  <div class="modes" role="tablist" aria-label="Input mode">
+    <button class="mode" role="tab" id="tab-ask" aria-selected="true" aria-controls="panel-ask" type="button">Ask in English</button>
+    <button class="mode" role="tab" id="tab-sql" aria-selected="false" aria-controls="panel-sql" type="button">Write SQL yourself</button>
+    <button class="mode" role="tab" id="tab-schema" aria-selected="false" aria-controls="panel-schema" type="button">Schema</button>
+  </div>
+
+  <!-- ASK -->
+  <section class="console" id="panel-ask" role="tabpanel" aria-labelledby="tab-ask">
+    <form class="field" id="ask-form">
+      <input type="text" id="question" autocomplete="off" spellcheck="false"
+             placeholder="Ask about the trading warehouse" aria-label="Question">
+      <button class="run" type="submit" id="ask-run">Run</button>
+    </form>
+    <div class="suggestions" id="ask-suggestions"></div>
+    <p class="hint" id="ask-hint"></p>
+  </section>
+
+  <!-- SQL -->
+  <section class="console" id="panel-sql" role="tabpanel" aria-labelledby="tab-sql" hidden>
+    <form class="field" id="sql-form">
+      <textarea id="sql" spellcheck="false" aria-label="SQL"
+                placeholder="SELECT side, COUNT(*) FROM trades GROUP BY side"></textarea>
+      <button class="run" type="submit" id="sql-run">Verify</button>
+    </form>
+    <span class="chip-label danger" id="refusal-label">Try to break it</span>
+    <div class="suggestions" id="sql-suggestions"></div>
+    <span class="chip-label" id="valid-label">Legitimate queries</span>
+    <div class="suggestions" id="sql-valid-suggestions"></div>
+    <p class="hint">The engine implements SELECT and nothing else, so a destructive statement has no grammar production to parse into.</p>
+  </section>
+
+  <!-- SCHEMA -->
+  <section class="console" id="panel-schema" role="tabpanel" aria-labelledby="tab-schema" hidden>
+    <div class="schema-grid" id="schema-grid"></div>
+  </section>
+
+  <!-- RAIL -->
+  <section class="rail-shell" id="rail-shell" hidden>
+    <div class="rail-head">
+      <span class="rail-title">Pipeline</span>
+      <span class="rail-verdict" id="rail-verdict"></span>
+    </div>
+    <div class="rail" id="rail"></div>
+  </section>
+
+  <div id="output" hidden>
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Query</span>
+          <span class="panel-note" id="sql-note"></span>
+        </div>
+        <div class="panel-body"><pre class="code" id="final-sql"></pre></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><span class="panel-title">Verification</span></div>
+        <div class="panel-body" id="verdict-body"></div>
+      </section>
+    </div>
+
+    <section class="panel" id="attempts-panel" style="margin-top: var(--gap)" hidden>
+      <div class="panel-head">
+        <span class="panel-title">Attempts</span>
+        <span class="panel-note" id="attempts-note"></span>
+      </div>
+      <div class="panel-body" id="attempts-body"></div>
+    </section>
+
+    <section class="panel" id="plan-panel" style="margin-top: var(--gap)" hidden>
+      <div class="panel-head">
+        <span class="panel-title">Logical plan</span>
+        <div class="seg" role="group" aria-label="Plan view">
+          <button type="button" id="plan-before" aria-pressed="false">Before</button>
+          <button type="button" id="plan-after" aria-pressed="true">After</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <pre class="tree" id="plan-tree"></pre>
+        <p class="hint" id="plan-summary"></p>
+      </div>
+    </section>
+
+    <section class="panel" id="result-panel" style="margin-top: var(--gap)" hidden>
+      <div class="panel-head">
+        <span class="panel-title">Rows</span>
+        <span class="panel-note" id="result-note"></span>
+      </div>
+      <div class="panel-body flush">
+        <div class="table-scroll"><table id="result-table"></table></div>
+      </div>
+    </section>
+  </div>
+
+  <p class="empty" id="idle">Ask a question, or write SQL. You will see what the parser made of it, what the verifier decided, both query plans, and the rows.</p>
+
+  <p class="sr-only" role="status" aria-live="polite" id="live"></p>
+</div>
+
+<!-- Precomputed by scripts/export_static_demo.py. Relative paths: the site lives under /sql-engine/. -->
+<script src="data/schema.js"></script>
+<script src="data/answers.js"></script>
+<script src="data/queries.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

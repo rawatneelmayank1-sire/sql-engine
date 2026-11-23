@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sql-engine"
+version = "0.1.0"
+description = "A SELECT-only SQL engine with a verified LLM text-to-SQL front-end."
+readme = "README.md"
+authors = [{ name = "Neelmayank Rawat", email = "rawatneelmayank1@gmail.com" }]
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Database :: Database Engines/Servers",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "pyarrow>=14",
+]
+
+[project.optional-dependencies]
+web = ["fastapi>=0.110", "uvicorn>=0.27"]
+llm = ["requests>=2.31"]
+dev = [
+    "pytest>=8",
+    "hypothesis>=6.90",
+    "httpx>=0.27",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "requests>=2.31",
+]
+
+[project.urls]
+Homepage = "https://github.com/rawatneelmayank1-sire/sql-engine"
+Repository = "https://github.com/rawatneelmayank1-sire/sql-engine"
+
+[project.scripts]
+sql-engine = "sql_engine.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["sql_engine*"]
+
+[tool.setuptools.package-data]
+"sql_engine.web" = ["static/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["error::DeprecationWarning:sql_engine.*"]
+
+[tool.ruff]
+line-length = 96
+target-version = "py311"

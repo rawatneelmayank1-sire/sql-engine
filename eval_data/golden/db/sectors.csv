@@ -1,0 +1,12 @@
+sector_id,name,description
+1,Technology,"Software, semiconductors and IT services"
+2,Financials,"Banks, insurers and asset managers"
+3,Healthcare,"Pharmaceuticals, biotech and medical devices"
+4,Energy,"Oil, gas and renewable power"
+5,Consumer Discretionary,"Retail, autos and leisure"
+6,Consumer Staples,
+7,Industrials,"Capital goods, aerospace and transport"
+8,Materials,"Chemicals, metals and mining"
+9,Utilities,
+10,Real Estate,REITs and property developers
+11,Communication Services,"Telecoms, media and entertainment"

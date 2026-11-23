@@ -1,0 +1,1158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600&display=swap" rel="stylesheet">
+<style>
+/* ---------------------------------------------------------------------------
+   SQL Engine — instrument panel.
+
+   The visual thesis: this is a bench instrument, not a chat window. A query is
+   a signal passing through six stages, and the rail across the middle of the
+   page is the readout. Amber means the signal was halted; teal means it passed.
+   Everything else on the page is deliberately quiet so the rail is the one
+   thing you remember.
+
+   Type: IBM Plex Mono carries the display role, which inverts the usual
+   hierarchy. In this product the machine's output is the headline, so the
+   machine's typeface leads.
+--------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light dark;
+
+  --ground:      #F6F8FA;
+  --panel:       #FFFFFF;
+  --panel-sunk:  #EEF2F6;
+  --rule:        #DCE3EB;
+  --rule-strong: #C3CDD9;
+  --ink:         #151B23;
+  --ink-mid:     #47535F;
+  --ink-dim:     #6E7C8C;
+
+  --pass:        #0F7A6E;
+  --pass-soft:   #D6EFEA;
+  --refuse:      #A85712;
+  --refuse-soft: #FBE8D4;
+  --trace:       #2A5C96;
+  --trace-soft:  #DEE9F6;
+
+  --shadow: 0 1px 2px rgba(21, 27, 35, .06), 0 8px 24px -12px rgba(21, 27, 35, .18);
+
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  --sans: "IBM Plex Sans", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+
+  --gap: 20px;
+  --radius: 3px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #0D1117;
+    --panel:       #151A21;
+    --panel-sunk:  #10151B;
+    --rule:        #232C36;
+    --rule-strong: #38434F;
+    --ink:         #E4EBF2;
+    --ink-mid:     #A7B4C2;
+    --ink-dim:     #788695;
+
+    --pass:        #45BFAF;
+    --pass-soft:   #10312E;
+    --refuse:      #E5913F;
+    --refuse-soft: #382612;
+    --trace:       #79A6DC;
+    --trace-soft:  #162434;
+
+    --shadow: 0 1px 0 rgba(255,255,255,.02), 0 12px 32px -18px rgba(0,0,0,.9);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:      #0D1117;
+  --panel:       #151A21;
+  --panel-sunk:  #10151B;
+  --rule:        #232C36;
+  --rule-strong: #38434F;
+  --ink:         #E4EBF2;
+  --ink-mid:     #A7B4C2;
+  --ink-dim:     #788695;
+
+  --pass:        #45BFAF;
+  --pass-soft:   #10312E;
+  --refuse:      #E5913F;
+  --refuse-soft: #382612;
+  --trace:       #79A6DC;
+  --trace-soft:  #162434;
+
+  --shadow: 0 1px 0 rgba(255,255,255,.02), 0 12px 32px -18px rgba(0,0,0,.9);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+}
+
+a { color: var(--trace); }
+
+:focus-visible {
+  outline: 2px solid var(--trace);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.wrap {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 24px 96px;
+}
+
+/* --- masthead ------------------------------------------------------------ */
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px 20px;
+  padding: 34px 0 22px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.wordmark {
+  font-family: var(--mono);
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -.035em;
+  margin: 0;
+}
+.wordmark .bracket { color: var(--ink-dim); font-weight: 400; }
+
+.tagline {
+  font-size: 13.5px;
+  color: var(--ink-mid);
+  margin: 0;
+  max-width: 44ch;
+}
+
+.masthead-spacer { flex: 1 1 40px; }
+
+.chip-row { display: flex; gap: 8px; align-items: center; }
+
+.pill {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  color: var(--ink-mid);
+  background: var(--panel);
+  white-space: nowrap;
+}
+.pill.live { border-color: var(--pass); color: var(--pass); }
+
+button.ghost {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  color: var(--ink-mid);
+  background: var(--panel);
+  cursor: pointer;
+}
+button.ghost:hover { border-color: var(--ink-dim); color: var(--ink); }
+
+/* --- mode tabs ------------------------------------------------------------ */
+
+.modes {
+  display: flex;
+  gap: 0;
+  margin: 26px 0 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.mode {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 9px 0;
+  margin-right: 26px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.mode[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.mode:hover { color: var(--ink-mid); }
+
+/* --- input --------------------------------------------------------------- */
+
+.console { padding: 22px 0 4px; }
+
+.field {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.field input[type="text"],
+.field textarea {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  color: var(--ink);
+  padding: 12px 14px;
+  font-family: var(--sans);
+  font-size: 15px;
+  box-shadow: var(--shadow);
+}
+.field textarea {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 92px;
+}
+.field input::placeholder, .field textarea::placeholder { color: var(--ink-dim); }
+
+button.run {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: 12px 22px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--ground);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+button.run:hover { opacity: .88; }
+button.run[disabled] { opacity: .45; cursor: default; }
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.suggestion {
+  font-size: 12.5px;
+  padding: 5px 11px;
+  border: 1px solid var(--rule);
+  border-radius: 100px;
+  background: var(--panel);
+  color: var(--ink-mid);
+  cursor: pointer;
+  font-family: var(--sans);
+  text-align: left;
+}
+.suggestion:hover { border-color: var(--rule-strong); color: var(--ink); }
+.suggestion.danger { font-family: var(--mono); font-size: 11.5px; color: var(--refuse); border-color: var(--refuse-soft); }
+.suggestion.danger:hover { border-color: var(--refuse); }
+
+.hint {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  margin: 10px 0 0;
+}
+
+/* --- the rail: the signature element ------------------------------------- */
+
+.rail-shell {
+  margin-top: 30px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.rail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel-sunk);
+}
+
+.rail-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.rail-verdict {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.rail-verdict.passed { color: var(--pass); }
+.rail-verdict.refused { color: var(--refuse); }
+
+.rail {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  padding: 22px 16px 20px;
+  position: relative;
+}
+
+.stage { position: relative; padding-top: 26px; text-align: center; }
+
+/* the connecting trace, drawn behind the nodes */
+.stage::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: -50%;
+  width: 100%;
+  height: 1px;
+  background: var(--rule-strong);
+}
+.stage:first-child::before { display: none; }
+
+.stage[data-status="passed"]::before { background: var(--pass); }
+.stage[data-status="refused"]::before { background: var(--refuse); }
+
+.node {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1.5px solid var(--rule-strong);
+  background: var(--panel);
+}
+
+.stage[data-status="passed"] .node {
+  border-color: var(--pass);
+  background: var(--pass);
+  box-shadow: 0 0 0 4px var(--pass-soft);
+}
+.stage[data-status="refused"] .node {
+  border-color: var(--refuse);
+  background: var(--refuse);
+  box-shadow: 0 0 0 4px var(--refuse-soft);
+}
+.stage[data-status="refused"] .node::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  background: var(--panel);
+  border-radius: 1px;
+}
+
+.stage-name {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.stage[data-status="passed"] .stage-name,
+.stage[data-status="refused"] .stage-name { color: var(--ink); }
+
+.stage-readout {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-top: 3px;
+  min-height: 1.3em;
+}
+
+/* one orchestrated moment: the rail resolves left to right */
+@media (prefers-reduced-motion: no-preference) {
+  .rail.animate .stage { animation: settle .32s ease-out backwards; }
+  .rail.animate .stage:nth-child(1) { animation-delay: .00s; }
+  .rail.animate .stage:nth-child(2) { animation-delay: .07s; }
+  .rail.animate .stage:nth-child(3) { animation-delay: .14s; }
+  .rail.animate .stage:nth-child(4) { animation-delay: .21s; }
+  .rail.animate .stage:nth-child(5) { animation-delay: .28s; }
+  .rail.animate .stage:nth-child(6) { animation-delay: .35s; }
+}
+@keyframes settle {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* --- panels -------------------------------------------------------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  /* Panels size to their content rather than stretching to match each other; a
+     refused query has no rows, and a tall empty box would imply something is missing. */
+  align-items: start;
+  gap: var(--gap);
+  margin-top: var(--gap);
+}
+
+.panel {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel-sunk);
+}
+
+.panel-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.panel-note {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+
+.panel-body { padding: 16px; }
+.panel-body.flush { padding: 0; }
+
+pre.code {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink);
+}
+
+pre.tree {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-mid);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* --- verdict list --------------------------------------------------------- */
+
+.check {
+  display: flex;
+  gap: 11px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--rule);
+  align-items: flex-start;
+}
+.check:last-child { border-bottom: none; }
+
+.check-mark {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  width: 1.4em;
+}
+.check.pass .check-mark { color: var(--pass); }
+.check.fail .check-mark { color: var(--refuse); }
+.check.skip .check-mark { color: var(--ink-dim); }
+.check.skip .check-label { color: var(--ink-dim); }
+
+.check-text { min-width: 0; }
+.check-label { font-size: 13.5px; }
+.check-detail {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  margin-top: 3px;
+  word-break: break-word;
+}
+
+.callout {
+  border-left: 2px solid var(--refuse);
+  background: var(--refuse-soft);
+  padding: 11px 14px;
+  margin: 0 0 14px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.callout.info { border-left-color: var(--trace); background: var(--trace-soft); }
+.callout-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--refuse);
+  display: block;
+  margin-bottom: 3px;
+}
+.callout.info .callout-title { color: var(--trace); }
+.callout-body { font-size: 13.5px; color: var(--ink); }
+
+/* --- attempts ------------------------------------------------------------- */
+
+.attempt {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.attempt:last-child { margin-bottom: 0; }
+.attempt-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--panel-sunk);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.attempt-status { margin-left: auto; }
+.attempt.fail .attempt-status { color: var(--refuse); }
+.attempt.pass .attempt-status { color: var(--pass); }
+.attempt-body { padding: 12px; }
+.attempt-body pre { font-size: 12px; }
+.attempt-reason {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--refuse);
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid var(--rule);
+  word-break: break-word;
+}
+
+/* --- plan toggle ---------------------------------------------------------- */
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-left: auto;
+}
+.seg button {
+  appearance: none;
+  border: none;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--rule-strong); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+
+/* --- results table -------------------------------------------------------- */
+
+.table-scroll { overflow-x: auto; max-height: 460px; overflow-y: auto; }
+
+table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12.5px; }
+
+thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-sunk);
+  text-align: left;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--ink-mid);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--rule-strong);
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+  color: var(--ink);
+}
+tbody tr:last-child td { border-bottom: none; }
+td.num { text-align: right; }
+td.null { color: var(--ink-dim); font-style: italic; }
+
+/* --- misc ----------------------------------------------------------------- */
+
+.empty {
+  padding: 44px 16px;
+  text-align: center;
+  color: var(--ink-dim);
+  font-size: 13.5px;
+}
+
+.schema-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+.schema-table { border: 1px solid var(--rule); border-radius: var(--radius); padding: 11px 13px; }
+.schema-name {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.schema-meta { font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); margin-bottom: 7px; }
+.schema-col { font-family: var(--mono); font-size: 11.5px; color: var(--ink-mid); }
+.schema-col span { color: var(--ink-dim); }
+
+[hidden] { display: none !important; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: 1fr; }
+  .rail { grid-template-columns: repeat(3, 1fr); row-gap: 24px; }
+  .stage:nth-child(4)::before { display: none; }
+}
+
+@media (max-width: 560px) {
+  .wrap { padding: 0 16px 64px; }
+  .rail { grid-template-columns: repeat(2, 1fr); }
+  .stage:nth-child(odd)::before { display: none; }
+  .field { flex-direction: column; }
+  button.run { align-self: stretch; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1 class="wordmark"><span class="bracket">[</span>SQL Engine<span class="bracket">]</span></h1>
+      <p class="tagline">A SELECT-only SQL engine and the verification layer in front of it. Every stage below is the real one the query passed through.</p>
+    </div>
+    <div class="masthead-spacer"></div>
+    <div class="chip-row">
+      <span class="pill" id="model-pill">loading</span>
+      <button class="ghost" id="theme-toggle" type="button">Theme</button>
+    </div>
+  </header>
+
+  <div class="modes" role="tablist" aria-label="Input mode">
+    <button class="mode" role="tab" id="tab-ask" aria-selected="true" aria-controls="panel-ask" type="button">Ask in English</button>
+    <button class="mode" role="tab" id="tab-sql" aria-selected="false" aria-controls="panel-sql" type="button">Write SQL yourself</button>
+    <button class="mode" role="tab" id="tab-schema" aria-selected="false" aria-controls="panel-schema" type="button">Schema</button>
+  </div>
+
+  <!-- ASK -->
+  <section class="console" id="panel-ask" role="tabpanel" aria-labelledby="tab-ask">
+    <form class="field" id="ask-form">
+      <input type="text" id="question" autocomplete="off" spellcheck="false"
+             placeholder="Ask about the trading warehouse" aria-label="Question">
+      <button class="run" type="submit" id="ask-run">Run</button>
+    </form>
+    <div class="suggestions" id="ask-suggestions"></div>
+    <p class="hint" id="ask-hint"></p>
+  </section>
+
+  <!-- SQL -->
+  <section class="console" id="panel-sql" role="tabpanel" aria-labelledby="tab-sql" hidden>
+    <form class="field" id="sql-form">
+      <textarea id="sql" spellcheck="false" aria-label="SQL"
+                placeholder="SELECT side, COUNT(*) FROM trades GROUP BY side"></textarea>
+      <button class="run" type="submit" id="sql-run">Verify</button>
+    </form>
+    <div class="suggestions" id="sql-suggestions"></div>
+    <p class="hint">Try to break it. The engine implements SELECT and nothing else, so a destructive statement has no grammar production to parse into.</p>
+  </section>
+
+  <!-- SCHEMA -->
+  <section class="console" id="panel-schema" role="tabpanel" aria-labelledby="tab-schema" hidden>
+    <div class="schema-grid" id="schema-grid"></div>
+  </section>
+
+  <!-- RAIL -->
+  <section class="rail-shell" id="rail-shell" hidden>
+    <div class="rail-head">
+      <span class="rail-title">Pipeline</span>
+      <span class="rail-verdict" id="rail-verdict"></span>
+    </div>
+    <div class="rail" id="rail"></div>
+  </section>
+
+  <div id="output" hidden>
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Query</span>
+          <span class="panel-note" id="sql-note"></span>
+        </div>
+        <div class="panel-body"><pre class="code" id="final-sql"></pre></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><span class="panel-title">Verification</span></div>
+        <div class="panel-body" id="verdict-body"></div>
+      </section>
+    </div>
+
+    <section class="panel" id="attempts-panel" style="margin-top: var(--gap)" hidden>
+      <div class="panel-head">
+        <span class="panel-title">Attempts</span>
+        <span class="panel-note" id="attempts-note"></span>
+      </div>
+      <div class="panel-body" id="attempts-body"></div>
+    </section>
+
+    <section class="panel" id="plan-panel" style="margin-top: var(--gap)" hidden>
+      <div class="panel-head">
+        <span class="panel-title">Logical plan</span>
+        <div class="seg" role="group" aria-label="Plan view">
+          <button type="button" id="plan-before" aria-pressed="false">Before</button>
+          <button type="button" id="plan-after" aria-pressed="true">After</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <pre class="tree" id="plan-tree"></pre>
+        <p class="hint" id="plan-summary"></p>
+      </div>
+    </section>
+
+    <section class="panel" id="result-panel" style="margin-top: var(--gap)" hidden>
+      <div class="panel-head">
+        <span class="panel-title">Rows</span>
+        <span class="panel-note" id="result-note"></span>
+      </div>
+      <div class="panel-body flush">
+        <div class="table-scroll"><table id="result-table"></table></div>
+      </div>
+    </section>
+  </div>
+
+  <p class="empty" id="idle">Ask a question, or write SQL. You will see what the parser made of it, what the verifier decided, both query plans, and the rows.</p>
+
+  <p class="sr-only" role="status" aria-live="polite" id="live"></p>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const STAGE_LABEL = {
+    tokenise: "Tokenise",
+    parse: "Parse",
+    bind: "Bind",
+    plan: "Plan",
+    verify: "Verify",
+    execute: "Execute",
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+
+  /* --- theme ------------------------------------------------------------- */
+
+  const applyTheme = (value) => {
+    if (value === "light" || value === "dark") {
+      document.documentElement.setAttribute("data-theme", value);
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+  };
+
+  const readStoredTheme = () => {
+    try { return localStorage.getItem("sql-engine-theme"); } catch { return null; }
+  };
+
+  applyTheme(readStoredTheme());
+
+  $("theme-toggle").addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const next = current
+      ? (current === "dark" ? "light" : "dark")
+      : (prefersDark ? "light" : "dark");
+    applyTheme(next);
+    try { localStorage.setItem("sql-engine-theme", next); } catch { /* private mode */ }
+  });
+
+  /* --- tabs --------------------------------------------------------------- */
+
+  const TABS = [["tab-ask", "panel-ask"], ["tab-sql", "panel-sql"], ["tab-schema", "panel-schema"]];
+  TABS.forEach(([tabId, panelId]) => {
+    $(tabId).addEventListener("click", () => {
+      TABS.forEach(([t, p]) => {
+        const active = t === tabId;
+        $(t).setAttribute("aria-selected", String(active));
+        $(p).hidden = !active;
+      });
+      if (panelId === "panel-ask") $("question").focus();
+      if (panelId === "panel-sql") $("sql").focus();
+    });
+  });
+
+  /* --- rendering ---------------------------------------------------------- */
+
+  let planData = { before: "", after: "", summary: "" };
+  let planView = "after";
+
+  const renderRail = (stages, ok) => {
+    const rail = $("rail");
+    rail.innerHTML = "";
+    rail.classList.remove("animate");
+    void rail.offsetWidth; // restart the animation
+    rail.classList.add("animate");
+
+    stages.forEach((stage) => {
+      const node = el("div", "stage");
+      node.dataset.status = stage.status;
+      node.appendChild(el("span", "node"));
+      node.appendChild(el("span", "stage-name", STAGE_LABEL[stage.name] || stage.name));
+      node.appendChild(el("span", "stage-readout", stage.readout || ""));
+      rail.appendChild(node);
+    });
+
+    const stopped = stages.find((s) => s.status === "refused");
+    const verdict = $("rail-verdict");
+    verdict.className = "rail-verdict " + (ok ? "passed" : "refused");
+    verdict.textContent = ok
+      ? "Verified and executed"
+      : "Halted at " + (STAGE_LABEL[stopped ? stopped.name : "verify"] || "verify");
+    $("rail-shell").hidden = false;
+    $("live").textContent = verdict.textContent;
+  };
+
+  const renderVerdict = (data) => {
+    const body = $("verdict-body");
+    body.innerHTML = "";
+
+    (data.failures || []).forEach((failure) => {
+      const box = el("div", "callout");
+      box.appendChild(el("span", "callout-title", failure.category.replace(/_/g, " ")));
+      box.appendChild(el("div", "callout-body", failure.message));
+      body.appendChild(box);
+    });
+
+    (data.repairs || []).forEach((repair) => {
+      const box = el("div", "callout info");
+      box.appendChild(el("span", "callout-title", "Repaired: " + repair.kind));
+      box.appendChild(el("div", "callout-body", repair.detail));
+      body.appendChild(box);
+    });
+
+    // A check that ran and passed, a check that ran and failed, and a check the
+    // pipeline never reached are three different things. Showing the third as "OK"
+    // would claim the catalog was consulted for a query that never got past the parser.
+    const failedCategories = new Set((data.failures || []).map((f) => f.category));
+    const stages = data.stages || [];
+    const haltIndex = stages.findIndex((s) => s.status === "refused");
+
+    const stageOf = (name) => stages.findIndex((s) => s.name === name);
+    const reached = (name) => {
+      if (haltIndex < 0) return true;
+      const index = stageOf(name);
+      return index >= 0 && index <= haltIndex;
+    };
+
+    const checks = [
+      ["parse", "Parses as a SELECT under the SQL Engine grammar",
+       !failedCategories.has("not_select") && !failedCategories.has("unparseable"),
+       "There is no AST node for INSERT, UPDATE, DELETE or DROP, so those cannot be built."],
+      ["bind", "Every table and column exists in the catalog",
+       !["unknown_table", "unknown_column", "ambiguous_column", "invalid_aggregation"]
+         .some((c) => failedCategories.has(c)),
+       "Checked against the schema read from the data files themselves."],
+      ["verify", "No join without an equality predicate",
+       !failedCategories.has("cartesian_product"),
+       "A cartesian product would pair every row on the left with every row on the right."],
+      ["verify", "A LIMIT is present",
+       true,
+       (data.repairs || []).some((r) => r.kind === "limit-injected")
+         ? "One was injected because the query had none."
+         : "The query supplied its own."],
+      ["verify", "Estimated scan is within budget",
+       !failedCategories.has("scan_too_large"),
+       "Measured on the optimised plan, so pruning columns lowers the cost."],
+    ];
+
+    checks.forEach(([stage, label, passed, detail]) => {
+      const ran = reached(stage);
+      const state = !ran ? "skip" : (passed ? "pass" : "fail");
+      const mark = { pass: "OK", fail: "NO", skip: "--" }[state];
+      const row = el("div", "check " + state);
+      row.appendChild(el("span", "check-mark", mark));
+      const text = el("div", "check-text");
+      text.appendChild(el("div", "check-label", label));
+      text.appendChild(el("div", "check-detail",
+        ran ? detail : "Not reached; the query was refused earlier."));
+      row.appendChild(text);
+      body.appendChild(row);
+    });
+  };
+
+  const renderAttempts = (attempts) => {
+    const panel = $("attempts-panel");
+    if (!attempts || attempts.length <= 1) { panel.hidden = true; return; }
+    panel.hidden = false;
+    $("attempts-note").textContent =
+      attempts.length + " model calls, " + (attempts.length - 1) + " caused by the verifier";
+
+    const body = $("attempts-body");
+    body.innerHTML = "";
+    attempts.forEach((attempt) => {
+      const box = el("div", "attempt " + (attempt.ok ? "pass" : "fail"));
+      const head = el("div", "attempt-head");
+      head.appendChild(el("span", null, "Attempt " + (attempt.index + 1)));
+      head.appendChild(el("span", "attempt-status", attempt.ok ? "accepted" : "refused"));
+      box.appendChild(head);
+
+      const inner = el("div", "attempt-body");
+      inner.appendChild(el("pre", "code", attempt.sql));
+      (attempt.failures || []).forEach((failure) => {
+        inner.appendChild(el("div", "attempt-reason", failure.message));
+      });
+      box.appendChild(inner);
+      body.appendChild(box);
+    });
+  };
+
+  const renderPlan = () => {
+    const text = planView === "after" ? planData.after : planData.before;
+    $("plan-panel").hidden = !text;
+    $("plan-tree").textContent = text || "";
+    $("plan-summary").textContent = planData.summary || "";
+    $("plan-after").setAttribute("aria-pressed", String(planView === "after"));
+    $("plan-before").setAttribute("aria-pressed", String(planView === "before"));
+  };
+
+  $("plan-after").addEventListener("click", () => { planView = "after"; renderPlan(); });
+  $("plan-before").addEventListener("click", () => { planView = "before"; renderPlan(); });
+
+  const renderRows = (result) => {
+    const panel = $("result-panel");
+    if (!result || !result.columns.length) { panel.hidden = true; return; }
+    panel.hidden = false;
+
+    const parts = [result.total.toLocaleString() + " row" + (result.total === 1 ? "" : "s")];
+    if (result.stats) {
+      parts.push(result.stats.rows_scanned.toLocaleString() + " scanned");
+      parts.push(result.stats.columns_read + " columns read");
+    }
+    if (result.truncated) parts.push("showing first " + result.rows.length);
+    $("result-note").textContent = parts.join("  ·  ");
+
+    const table = $("result-table");
+    table.innerHTML = "";
+    const thead = el("thead");
+    const headRow = el("tr");
+    result.columns.forEach((name) => headRow.appendChild(el("th", null, name)));
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = el("tbody");
+    result.rows.forEach((row) => {
+      const tr = el("tr");
+      row.forEach((value) => {
+        const isNull = value === null;
+        const isNumber = typeof value === "number";
+        const td = el("td", isNull ? "null" : (isNumber ? "num" : null),
+                      isNull ? "NULL" : String(value));
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+  };
+
+  const render = (data) => {
+    $("idle").hidden = true;
+    $("output").hidden = false;
+
+    renderRail(data.stages || [], data.ok);
+    $("final-sql").textContent = data.sql || data.original_sql || "";
+    $("sql-note").textContent = data.elapsed_ms
+      ? data.elapsed_ms.toFixed(1) + " ms"
+      : "";
+    renderVerdict(data);
+    renderAttempts(data.attempts);
+    planData = data.plan || { before: "", after: "", summary: "" };
+    renderPlan();
+    renderRows(data.result);
+  };
+
+  const renderMessage = (title, message) => {
+    $("idle").hidden = true;
+    $("output").hidden = false;
+    $("rail-shell").hidden = true;
+    $("final-sql").textContent = "";
+    $("sql-note").textContent = "";
+    const body = $("verdict-body");
+    body.innerHTML = "";
+    const box = el("div", "callout info");
+    box.appendChild(el("span", "callout-title", title));
+    box.appendChild(el("div", "callout-body", message));
+    body.appendChild(box);
+    $("attempts-panel").hidden = true;
+    $("plan-panel").hidden = true;
+    $("result-panel").hidden = true;
+    $("live").textContent = message;
+  };
+
+  /* --- requests ----------------------------------------------------------- */
+
+  const post = async (path, payload, button, busyLabel, idleLabel) => {
+    button.disabled = true;
+    button.textContent = busyLabel;
+    try {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        renderMessage("Request failed", "The server returned HTTP " + response.status + ".");
+        return null;
+      }
+      return await response.json();
+    } catch (error) {
+      renderMessage("Request failed", String(error));
+      return null;
+    } finally {
+      button.disabled = false;
+      button.textContent = idleLabel;
+    }
+  };
+
+  $("ask-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const question = $("question").value.trim();
+    if (!question) return;
+    const data = await post("/api/ask", { question }, $("ask-run"), "Running", "Run");
+    if (!data) return;
+    if (data.no_model) { renderMessage("No model configured", data.message); return; }
+    render(data);
+  });
+
+  $("sql-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const sql = $("sql").value;
+    const data = await post("/api/verify", { sql }, $("sql-run"), "Verifying", "Verify");
+    if (data) render(data);
+  });
+
+  /* --- boot --------------------------------------------------------------- */
+
+  fetch("/api/schema").then((r) => r.json()).then((schema) => {
+    const pill = $("model-pill");
+    pill.textContent = schema.live_model ? schema.model : "fixtures · no key";
+    pill.classList.toggle("live", Boolean(schema.live_model));
+
+    $("ask-hint").textContent = schema.live_model
+      ? "Answers come from " + schema.model + ". Every one is verified before it runs."
+      : "No API key is set, so answers replay recorded responses. The questions below are the ones on file.";
+
+    const asks = $("ask-suggestions");
+    schema.examples.forEach((question) => {
+      const button = el("button", "suggestion", question);
+      button.type = "button";
+      button.addEventListener("click", () => {
+        $("question").value = question;
+        $("ask-form").requestSubmit();
+      });
+      asks.appendChild(button);
+    });
+
+    const attacks = $("sql-suggestions");
+    schema.attack_examples.forEach((sql) => {
+      const button = el("button", "suggestion danger", sql);
+      button.type = "button";
+      button.addEventListener("click", () => {
+        $("sql").value = sql;
+        $("sql-form").requestSubmit();
+      });
+      attacks.appendChild(button);
+    });
+
+    const grid = $("schema-grid");
+    schema.tables.forEach((table) => {
+      const card = el("div", "schema-table");
+      card.appendChild(el("div", "schema-name", table.name));
+      card.appendChild(el("div", "schema-meta",
+        table.format + "  ·  " + table.rows.toLocaleString() + " rows"));
+      table.columns.forEach((column) => {
+        const row = el("div", "schema-col");
+        row.appendChild(document.createTextNode(column.name + " "));
+        row.appendChild(el("span", null, column.type));
+        card.appendChild(row);
+      });
+      grid.appendChild(card);
+    });
+    // A shareable link runs its query on load. Useful for pointing someone at a
+    // specific refusal ("open this and watch it stop at BIND") rather than describing it.
+    const params = new URLSearchParams(window.location.search);
+    const preloadSql = params.get("sql");
+    const preloadQuestion = params.get("q");
+    if (preloadSql !== null) {
+      $("tab-sql").click();
+      $("sql").value = preloadSql;
+      $("sql-form").requestSubmit();
+    } else if (preloadQuestion) {
+      $("question").value = preloadQuestion;
+      $("ask-form").requestSubmit();
+    }
+  }).catch(() => {
+    $("model-pill").textContent = "offline";
+  });
+})();
+</script>
+</body>
+</html>

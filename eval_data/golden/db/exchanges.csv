@@ -1,0 +1,9 @@
+exchange_id,code,name,country,currency,timezone,founded_year
+1,XNAS,Nasdaq Stock Market,United States,USD,America/New_York,1971
+2,XNYS,New York Stock Exchange,United States,USD,America/New_York,1792
+3,XLON,London Stock Exchange,United Kingdom,GBP,Europe/London,1801
+4,XTKS,Tokyo Stock Exchange,Japan,JPY,Asia/Tokyo,1878
+5,XETR,Deutsche Boerse Xetra,Germany,EUR,Europe/Berlin,1997
+6,XTSE,Toronto Stock Exchange,Canada,CAD,America/Toronto,1861
+7,XHKG,Hong Kong Stock Exchange,Hong Kong,HKD,Asia/Hong_Kong,1891
+8,XASX,Australian Securities Exchange,Australia,AUD,Australia/Sydney,1987

@@ -1,0 +1,310 @@
+{
+  "database": "market",
+  "engine": "sqlite3",
+  "seed": 20260909,
+  "description": "Synthetic market / instrument reference database for sql-engine eval.",
+  "tables": [
+    {
+      "name": "exchanges",
+      "primary_key": [
+        "exchange_id"
+      ],
+      "foreign_keys": [],
+      "columns": [
+        {
+          "name": "exchange_id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "code",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "country",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "currency",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "timezone",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "founded_year",
+          "type": "INTEGER",
+          "nullable": false
+        }
+      ],
+      "row_count": 8
+    },
+    {
+      "name": "sectors",
+      "primary_key": [
+        "sector_id"
+      ],
+      "foreign_keys": [],
+      "columns": [
+        {
+          "name": "sector_id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true
+        }
+      ],
+      "row_count": 11
+    },
+    {
+      "name": "instruments",
+      "primary_key": [
+        "instrument_id"
+      ],
+      "foreign_keys": [
+        {
+          "column": "exchange_id",
+          "references": "exchanges.exchange_id"
+        },
+        {
+          "column": "sector_id",
+          "references": "sectors.sector_id"
+        }
+      ],
+      "columns": [
+        {
+          "name": "instrument_id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "ticker",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "exchange_id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "sector_id",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "instrument_type",
+          "type": "TEXT",
+          "nullable": false,
+          "enum": [
+            "equity",
+            "etf",
+            "adr"
+          ]
+        },
+        {
+          "name": "currency",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "listing_date",
+          "type": "TEXT",
+          "nullable": false,
+          "format": "date"
+        },
+        {
+          "name": "shares_outstanding",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "is_active",
+          "type": "INTEGER",
+          "nullable": false,
+          "enum": [
+            0,
+            1
+          ]
+        }
+      ],
+      "row_count": 120
+    },
+    {
+      "name": "daily_bars",
+      "primary_key": [
+        "bar_id"
+      ],
+      "foreign_keys": [
+        {
+          "column": "instrument_id",
+          "references": "instruments.instrument_id"
+        }
+      ],
+      "columns": [
+        {
+          "name": "bar_id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "instrument_id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "trade_date",
+          "type": "TEXT",
+          "nullable": false,
+          "format": "date"
+        },
+        {
+          "name": "open",
+          "type": "REAL",
+          "nullable": false
+        },
+        {
+          "name": "high",
+          "type": "REAL",
+          "nullable": false
+        },
+        {
+          "name": "low",
+          "type": "REAL",
+          "nullable": false
+        },
+        {
+          "name": "close",
+          "type": "REAL",
+          "nullable": false
+        },
+        {
+          "name": "volume",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "adj_close",
+          "type": "REAL",
+          "nullable": false
+        }
+      ],
+      "row_count": 14400
+    },
+    {
+      "name": "analysts",
+      "primary_key": [
+        "analyst_id"
+      ],
+      "foreign_keys": [],
+      "columns": [
+        {
+          "name": "analyst_id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "firm",
+          "type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "country",
+          "type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "start_year",
+          "type": "INTEGER",
+          "nullable": false
+        }
+      ],
+      "row_count": 40
+    },
+    {
+      "name": "ratings",
+      "primary_key": [
+        "rating_id"
+      ],
+      "foreign_keys": [
+        {
+          "column": "instrument_id",
+          "references": "instruments.instrument_id"
+        },
+        {
+          "column": "analyst_id",
+          "references": "analysts.analyst_id"
+        }
+      ],
+      "columns": [
+        {
+          "name": "rating_id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "instrument_id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "analyst_id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "rating_date",
+          "type": "TEXT",
+          "nullable": false,
+          "format": "date"
+        },
+        {
+          "name": "rating",
+          "type": "TEXT",
+          "nullable": false,
+          "enum": [
+            "strong_buy",
+            "buy",
+            "hold",
+            "sell",
+            "underperform"
+          ]
+        },
+        {
+          "name": "price_target",
+          "type": "REAL",
+          "nullable": true
+        }
+      ],
+      "row_count": 620
+    }
+  ]
+}
